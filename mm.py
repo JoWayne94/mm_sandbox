@@ -1,10 +1,12 @@
 """
-Description: Matrix multiplication abstract class
+Description: Matrix multiplication class
 
 Author(s): Jo Wayne Tan
 """
 # from abc import ABC, abstractmethod
 import numpy as np
+import torch
+import torch.nn.functional as F
 
 
 class matMul():
@@ -12,8 +14,9 @@ class matMul():
     def __init__(self, a, b):
         self.A = a
         self.B = b
-        self.row_dim, _ = a.shape
-        _, self.col_dim = b.shape
+        self.A_row_dim = a.size(dim=0)
+        self.B_col_dim = b.size(dim=1)
+        self.B_row_dim = b.size(dim=0)
 
     @staticmethod
     def split(matrix):
@@ -22,7 +25,8 @@ class matMul():
         :param matrix: nxn matrix
         :return: tuple containing 4 n/2 x n/2 matrices corresponding to a, b, c, d
         """
-        row, col = matrix.shape
+        row = matrix.size(dim=0)
+        col = matrix.size(dim=1)
         row2, col2 = row // 2, col // 2
         return matrix[:row2, :col2], matrix[:row2, col2:], matrix[row2:, :col2], matrix[row2:, col2:]
 
@@ -31,11 +35,11 @@ class matMul():
         Naive row by column multiplication
         :return: C
         """
-        c = np.zeros((self.row_dim, self.col_dim))  # result
+        c = torch.zeros((self.A_row_dim, self.B_col_dim))  # result
 
-        for i in range(len(self.A)):
-            for k in range(len(self.B[0])):
-                for j in range(len(self.B)):
+        for i in range(self.A_row_dim):
+            for k in range(self.B_col_dim):
+                for j in range(self.B_row_dim):
                     c[i][k] += self.A[i][j] * self.B[j][k]
 
         return c
@@ -47,14 +51,14 @@ class matMul():
         :return: nxn matrix, product of A and B
         """
         # Base case when size of matrices is 1x1
-        if len(A) == 1 or len(B) == 1:
+        if A.size(dim=0) == 1 or B.size(dim=0) == 1:
             return A * B
 
-        n = A.shape[0]
+        n = A.size(dim=0)
 
         if n % 2 == 1:
-            A = np.pad(A, (0, 1), mode='constant')
-            B = np.pad(B, (0, 1), mode='constant')
+            A = F.pad(A, (0, 1), mode='constant')
+            B = F.pad(B, (0, 1), mode='constant')
 
         # Splitting the matrices into quadrants. This will be done recursively until the base case is reached.
         a, b, c, d = matMul.split(A)
@@ -76,6 +80,6 @@ class matMul():
         c22 = p1 + p5 - p3 - p7
 
         # Combining the 4 quadrants into a single matrix by stacking horizontally and vertically.
-        c = np.vstack((np.hstack((c11, c12)), np.hstack((c21, c22))))
+        c = torch.vstack((torch.hstack((c11, c12)), torch.hstack((c21, c22))))
 
         return c
